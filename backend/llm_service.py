@@ -1,67 +1,37 @@
 """
-llm_service.py — Transformers streaming integration for QwQ
+llm_service.py — OpenRouter streaming integration
 
-Uses the latest Transformers chat-template path recommended by the QwQ model
-card so the backend can format prompts correctly and stream generated HTML.
+Uses the OpenRouter OpenAI-compatible streaming API so the backend can stay
+lightweight and avoid local model loading issues.
 """
-import asyncio
+import json
 import os
 import re
-import threading
 from typing import AsyncGenerator
 
-from transformers import AutoModelForCausalLM, AutoTokenizer, TextIteratorStreamer
+import httpx
 
 from streaming import sanitize_token
+
 
 # ---------------------------------------------------------------------------
 # Configuration (read fresh on each module load after --reload)
 # ---------------------------------------------------------------------------
 def _get_config() -> dict:
     return {
-        "model_id": os.getenv("MODEL_ID", "Qwen/QwQ-32B"),
-        "hf_token": os.getenv("HF_TOKEN"),
+        "model_id": os.getenv("OPENROUTER_MODEL", os.getenv("MODEL_ID", "moonshotai/kimi-k2.6:free")),
+        "api_key": os.getenv("OPENROUTER_API_KEY"),
+        "base_url": os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
+        "site_url": os.getenv("OPENROUTER_SITE_URL", "http://localhost:3000"),
+        "app_name": os.getenv("OPENROUTER_APP_NAME", "AI Website Generator"),
         "temperature": float(os.getenv("TEMPERATURE", "0.6")),
         "top_p": float(os.getenv("TOP_P", "0.95")),
-        "top_k": int(os.getenv("TOP_K", "40")),
-        "repetition_penalty": float(os.getenv("REPETITION_PENALTY", "1.05")),
         "max_new_tokens": int(os.getenv("MAX_NEW_TOKENS", "2048")),
+        "reasoning_enabled": os.getenv("OPENROUTER_REASONING_ENABLED", "true").lower() in {"1", "true", "yes", "on"},
     }
 
 
 MODEL_ID = _get_config()["model_id"]
-
-
-_MODEL = None
-_TOKENIZER = None
-_MODEL_LOCK = threading.Lock()
-
-
-def _load_model_and_tokenizer():
-    global _MODEL, _TOKENIZER
-
-    if _MODEL is not None and _TOKENIZER is not None:
-        return _MODEL, _TOKENIZER
-
-    with _MODEL_LOCK:
-        if _MODEL is None or _TOKENIZER is None:
-            cfg = _get_config()
-            tokenizer = AutoTokenizer.from_pretrained(cfg["model_id"])
-            if tokenizer.pad_token is None:
-                tokenizer.pad_token = tokenizer.eos_token
-
-            model = AutoModelForCausalLM.from_pretrained(
-                cfg["model_id"],
-                torch_dtype="auto",
-                device_map="auto",
-                token=cfg["hf_token"],
-            )
-            model.eval()
-
-            _MODEL = model
-            _TOKENIZER = tokenizer
-
-    return _MODEL, _TOKENIZER
 
 
 def _strip_think_blocks(text: str) -> str:
@@ -85,7 +55,8 @@ CRITICAL RULES — follow them exactly:
 6. Make the design visually stunning, responsive, and production-ready.
 7. Include realistic placeholder content — no lorem ipsum.
 8. Start your response directly with an HTML tag, no preamble.
-9. Do not expose reasoning or <think> blocks in the final output."""
+9. Do not expose reasoning or <think> blocks in the final output.
+"""
 
 
 # ---------------------------------------------------------------------------
@@ -95,98 +66,88 @@ async def stream_html_tokens(prompt: str) -> AsyncGenerator[str, None]:
     """
     Async generator that yields sanitized HTML token strings.
 
-    QwQ expects a chat-template formatted prompt. We render the messages with
-    apply_chat_template, then stream generation from Transformers using a
-    TextIteratorStreamer.
+    OpenRouter exposes an OpenAI-compatible streaming API, so we send the
+    same system/user messages and forward each streamed delta into SSE.
     """
     cfg = _get_config()
-    model, tokenizer = _load_model_and_tokenizer()
+
+    if not cfg["api_key"]:
+        raise RuntimeError("OPENROUTER_API_KEY is not configured.")
 
     messages = [
         {"role": "system", "content": SYSTEM_INSTRUCTION},
         {"role": "user", "content": prompt},
     ]
 
-    chat_text = tokenizer.apply_chat_template(
-        messages,
-        tokenize=False,
-        add_generation_prompt=True,
-    )
-
-    model_inputs = tokenizer([chat_text], return_tensors="pt")
-    model_inputs = model_inputs.to(model.device)
-
-    streamer = TextIteratorStreamer(
-        tokenizer,
-        skip_prompt=True,
-        skip_special_tokens=True,
-    )
-
-    generation_kwargs = {
-        **model_inputs,
-        "streamer": streamer,
-        "max_new_tokens": cfg["max_new_tokens"],
-        "do_sample": True,
+    payload = {
+        "model": cfg["model_id"],
+        "messages": messages,
+        "stream": True,
         "temperature": cfg["temperature"],
         "top_p": cfg["top_p"],
-        "top_k": cfg["top_k"],
-        "repetition_penalty": cfg["repetition_penalty"],
-        "pad_token_id": tokenizer.pad_token_id,
-        "eos_token_id": tokenizer.eos_token_id,
+        "max_tokens": cfg["max_new_tokens"],
+        "reasoning": {
+            "enabled": cfg["reasoning_enabled"],
+        },
     }
 
-    loop = asyncio.get_running_loop()
-    queue: asyncio.Queue[str | None] = asyncio.Queue()
+    headers = {
+        "Authorization": f"Bearer {cfg['api_key']}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": cfg["site_url"],
+        "X-Title": cfg["app_name"],
+    }
 
-    def _run_generation():
-        try:
-            model.generate(**generation_kwargs)
-        except Exception as exc:
-            asyncio.run_coroutine_threadsafe(queue.put(f"__ERROR__:{exc}"), loop)
-        finally:
-            asyncio.run_coroutine_threadsafe(queue.put(None), loop)
-
-    def _stream_to_queue():
-        try:
-            for chunk in streamer:
-                if chunk:
-                    asyncio.run_coroutine_threadsafe(queue.put(chunk), loop)
-        except Exception as exc:
-            asyncio.run_coroutine_threadsafe(queue.put(f"__ERROR__:{exc}"), loop)
-
-    generation_thread = threading.Thread(target=_run_generation, daemon=True)
-    stream_thread = threading.Thread(target=_stream_to_queue, daemon=True)
-    generation_thread.start()
-    stream_thread.start()
-
-    found_html_start = False
     raw_buffer = ""
     emitted_visible = ""
+    found_html_start = False
 
-    while True:
-        token_raw = await queue.get()
+    async with httpx.AsyncClient(timeout=None) as client:
+        async with client.stream(
+            "POST",
+            f"{cfg['base_url'].rstrip('/')}/chat/completions",
+            headers=headers,
+            json=payload,
+        ) as response:
+            response.raise_for_status()
 
-        if token_raw is None:
-            break
+            async for line in response.aiter_lines():
+                if not line or not line.startswith("data:"):
+                    continue
 
-        if isinstance(token_raw, str) and token_raw.startswith("__ERROR__:"):
-            raise RuntimeError(token_raw[len("__ERROR__:"):])
+                data = line.removeprefix("data:").strip()
+                if data == "[DONE]":
+                    break
 
-        raw_buffer += sanitize_token(token_raw)
-        visible = _strip_think_blocks(raw_buffer)
+                try:
+                    chunk = json.loads(data)
+                except json.JSONDecodeError:
+                    continue
 
-        if not found_html_start:
-            idx = visible.find("<")
-            if idx == -1:
-                continue
-            visible = visible[idx:]
-            found_html_start = True
+                choices = chunk.get("choices") or []
+                if not choices:
+                    continue
 
-        if len(visible) <= len(emitted_visible):
-            continue
+                delta = choices[0].get("delta") or {}
+                token_raw = delta.get("content") or ""
+                if not token_raw:
+                    continue
 
-        new_text = visible[len(emitted_visible):]
-        emitted_visible = visible
+                raw_buffer += sanitize_token(token_raw)
+                visible = _strip_think_blocks(raw_buffer)
 
-        if new_text:
-            yield new_text
+                if not found_html_start:
+                    idx = visible.find("<")
+                    if idx == -1:
+                        continue
+                    visible = visible[idx:]
+                    found_html_start = True
+
+                if len(visible) <= len(emitted_visible):
+                    continue
+
+                new_text = visible[len(emitted_visible):]
+                emitted_visible = visible
+
+                if new_text:
+                    yield new_text

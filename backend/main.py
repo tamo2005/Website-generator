@@ -53,7 +53,7 @@ async def lifespan(app: FastAPI):
 # ---------------------------------------------------------------------------
 app = FastAPI(
     title="AI Website Generator API",
-    description="FastAPI + LangChain + HuggingFace streaming HTML generator",
+    description="FastAPI + OpenRouter streaming HTML generator",
     version="1.0.0",
     lifespan=lifespan,
 )
