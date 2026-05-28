@@ -86,30 +86,31 @@ export default function PromptPanel({
       className="flex flex-col h-full overflow-hidden animate-slide-in-left"
       style={{
         borderRight: '1px solid var(--border)',
-        background: 'rgba(255,255,255,0.015)',
+        background: 'linear-gradient(180deg, rgba(255,255,255,0.03), rgba(2,6,23,0.55))',
+        boxShadow: 'inset -1px 0 0 rgba(255,255,255,0.03)',
       }}
     >
       {/* ── Header ─────────────────────────────────────────── */}
       <div
-        className="flex-none px-5 py-4"
+        className="flex-none px-5 py-5"
         style={{ borderBottom: '1px solid var(--border)' }}
       >
-        <div className="flex items-center gap-2.5 mb-0.5">
+        <div className="flex items-center gap-3 mb-1">
           <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center"
+            className="w-10 h-10 rounded-2xl flex items-center justify-center"
             style={{
-              background: 'linear-gradient(135deg, #6366f1, #a855f7)',
-              boxShadow: '0 0 16px rgba(99,102,241,0.4)',
+              background: 'linear-gradient(135deg, #22d3ee, #a855f7, #f43f5e)',
+              boxShadow: '0 0 24px rgba(168,85,247,0.45)',
             }}
           >
             <Sparkles size={16} className="text-white" />
           </div>
           <div>
-            <h1 className="text-sm font-700 tracking-tight" style={{ color: 'var(--text-primary)' }}>
+            <h1 className="text-sm font-800 tracking-tight uppercase" style={{ color: 'var(--text-primary)' }}>
               AI Website Generator
             </h1>
-            <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
-              Powered by Mistral · HuggingFace
+            <p className="text-[10px] uppercase tracking-[0.2em]" style={{ color: 'var(--text-muted)' }}>
+              Powered by OpenRouter · Kimi
             </p>
           </div>
         </div>
@@ -187,10 +188,10 @@ export default function PromptPanel({
         {/* Error */}
         {error && (
           <div
-            className="rounded-lg px-3.5 py-2.5 text-xs leading-relaxed animate-fade-in"
+            className="rounded-xl px-3.5 py-2.5 text-xs leading-relaxed animate-fade-in"
             style={{
-              background: 'rgba(248,113,113,0.08)',
-              border: '1px solid rgba(248,113,113,0.2)',
+              background: 'rgba(244,63,94,0.08)',
+              border: '1px solid rgba(244,63,94,0.22)',
               color: 'var(--error)',
             }}
           >
@@ -201,13 +202,13 @@ export default function PromptPanel({
         {/* Stats */}
         {(tokenCount > 0 || isGenerating) && (
           <div
-            className="rounded-lg px-3.5 py-3 animate-fade-in"
+            className="rounded-xl px-3.5 py-3 animate-fade-in"
             style={{
-              background: 'rgba(99,102,241,0.06)',
-              border: '1px solid rgba(99,102,241,0.15)',
+              background: 'rgba(34,211,238,0.06)',
+              border: '1px solid rgba(34,211,238,0.14)',
             }}
           >
-            <p className="text-[10px] font-600 uppercase tracking-wider mb-2" style={{ color: '#818cf8' }}>
+            <p className="text-[10px] font-700 uppercase tracking-[0.2em] mb-2" style={{ color: '#67e8f9' }}>
               Generation Stats
             </p>
             <div className="grid grid-cols-2 gap-1.5">
@@ -240,8 +241,8 @@ export default function PromptPanel({
             onClick={onCancel}
             className="w-full py-3 rounded-xl flex items-center justify-center gap-2 text-sm font-600 transition-all duration-200"
             style={{
-              background: 'rgba(248,113,113,0.1)',
-              border: '1px solid rgba(248,113,113,0.3)',
+              background: 'rgba(244,63,94,0.1)',
+              border: '1px solid rgba(244,63,94,0.3)',
               color: '#f87171',
             }}
           >
@@ -267,9 +268,9 @@ export default function PromptPanel({
 /* ── Tiny helper ─────────────────────────────────────────── */
 function StatRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between">
-      <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{label}</span>
-      <span className="text-[11px] font-500 mono" style={{ color: 'var(--text-secondary)' }}>{value}</span>
+    <div className="flex items-center justify-between rounded-lg border px-2.5 py-2" style={{ borderColor: 'rgba(255,255,255,0.06)', background: 'rgba(2,6,23,0.55)' }}>
+      <span className="text-[10px] uppercase tracking-[0.16em]" style={{ color: 'var(--text-muted)' }}>{label}</span>
+      <span className="text-[11px] font-600 mono" style={{ color: 'var(--text-secondary)' }}>{value}</span>
     </div>
   );
 }

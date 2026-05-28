@@ -4,16 +4,20 @@ main.py — FastAPI application entry point
 Endpoints:
   GET  /api/health   — health check + model info
   POST /api/generate — SSE streaming HTML generation
+    POST /api/export   — ZIP export with generated HTML + preview CSS
 """
 import os
 import time
 import logging
+import zipfile
+from io import BytesIO
+from pathlib import Path
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import StreamingResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
 
 load_dotenv()
@@ -33,8 +37,19 @@ logger = logging.getLogger("ai-site-gen")
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
-ALLOWED_ORIGIN: str = os.getenv("ALLOWED_ORIGIN", "http://localhost:3000")
+_allowed_origin_value = os.getenv("ALLOWED_ORIGIN", "http://localhost:3000,http://localhost:3001")
+ALLOWED_ORIGINS = [origin.strip() for origin in _allowed_origin_value.split(",") if origin.strip()]
+if "http://localhost:3000" in ALLOWED_ORIGINS and "http://localhost:3001" not in ALLOWED_ORIGINS:
+    ALLOWED_ORIGINS.append("http://localhost:3001")
+if "http://localhost:3001" in ALLOWED_ORIGINS and "http://localhost:3000" not in ALLOWED_ORIGINS:
+    ALLOWED_ORIGINS.append("http://localhost:3000")
 MAX_PROMPT_CHARS: int = int(os.getenv("MAX_PROMPT_CHARS", "8000"))
+PREVIEW_CSS_PATH = Path(
+    os.getenv(
+        "PREVIEW_CSS_PATH",
+        str(Path(__file__).resolve().parents[1] / "frontend" / "public" / "preview-tailwind.css"),
+    )
+)
 
 # ---------------------------------------------------------------------------
 # Lifespan
@@ -43,7 +58,7 @@ MAX_PROMPT_CHARS: int = int(os.getenv("MAX_PROMPT_CHARS", "8000"))
 async def lifespan(app: FastAPI):
     logger.info("🚀 AI Website Generator backend starting …")
     logger.info(f"   Model  : {MODEL_ID}")
-    logger.info(f"   CORS   : {ALLOWED_ORIGIN}")
+    logger.info(f"   CORS   : {', '.join(ALLOWED_ORIGINS)}")
     yield
     logger.info("🛑 Backend shutting down.")
 
@@ -60,7 +75,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[ALLOWED_ORIGIN],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Content-Type", "Accept", "Authorization"],
@@ -83,6 +98,36 @@ class HealthResponse(BaseModel):
     status: str
     model: str
     max_prompt_chars: int
+
+
+class ExportRequest(BaseModel):
+    html: str = Field(min_length=1, description="Generated HTML to package into a ZIP archive.")
+
+
+def _build_export_html(html: str) -> str:
+    return f"""<!DOCTYPE html>
+<html lang=\"en\">
+<head>
+  <meta charset=\"UTF-8\" />
+  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />
+  <link rel=\"stylesheet\" href=\"./preview-tailwind.css\" />
+  <style>
+    html, body {{ margin: 0; min-height: 100%; background: #020617; }}
+    body {{ color: #e2e8f0; }}
+  </style>
+</head>
+<body>
+{html}
+</body>
+</html>"""
+
+
+def _read_preview_css() -> str:
+    if PREVIEW_CSS_PATH.exists():
+        return PREVIEW_CSS_PATH.read_text(encoding="utf-8")
+
+    logger.warning("Preview CSS not found at %s; exporting a minimal fallback stylesheet.", PREVIEW_CSS_PATH)
+    return "html,body{margin:0;min-height:100%;background:#020617;color:#e2e8f0;font-family:system-ui,sans-serif;}"
 
 
 # ---------------------------------------------------------------------------
@@ -145,6 +190,25 @@ async def generate(payload: GenerateRequest, request: Request) -> StreamingRespo
             "X-Accel-Buffering": "no",
             "Connection": "keep-alive",
         },
+    )
+
+
+@app.post("/api/export", tags=["generation"])
+async def export(payload: ExportRequest) -> Response:
+    """Package generated HTML with the preview stylesheet into a ZIP download."""
+    html = _build_export_html(payload.html.strip())
+    preview_css = _read_preview_css()
+
+    zip_buffer = BytesIO()
+    with zipfile.ZipFile(zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("index.html", html)
+        archive.writestr("preview-tailwind.css", preview_css)
+
+    zip_buffer.seek(0)
+    return Response(
+        content=zip_buffer.getvalue(),
+        media_type="application/zip",
+        headers={"Content-Disposition": 'attachment; filename="generated-site.zip"'},
     )
 
 

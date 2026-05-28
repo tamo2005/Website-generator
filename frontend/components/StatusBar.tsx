@@ -43,16 +43,16 @@ export default function StatusBar({
 
   return (
     <div
-      className="flex-none flex items-center justify-between px-4 h-8 text-[10px]"
+      className="flex-none flex items-center justify-between px-4 h-10 text-[10px]"
       style={{
         borderTop: '1px solid var(--border)',
-        background: 'rgba(0,0,0,0.3)',
+        background: 'linear-gradient(180deg, rgba(2,6,23,0.65), rgba(0,0,0,0.92))',
         color: 'var(--text-muted)',
       }}
     >
       {/* Left: status */}
       <div className="flex items-center gap-3">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 rounded-full border px-2.5 py-1" style={{ borderColor: 'rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.03)' }}>
           <div className={`status-dot ${dotClass}`} />
           <span>{statusText}</span>
         </div>
@@ -77,14 +77,14 @@ export default function StatusBar({
       </div>
 
       {/* Center: model info */}
-      <div className="flex items-center gap-3">
+      <div className="hidden md:flex items-center gap-3">
         <span className="flex items-center gap-1">
           <Cpu size={9} />
-          Mistral-7B-Instruct
+          moonshotai/kimi-k2.6:free
         </span>
         <span className="flex items-center gap-1">
           <Globe size={9} />
-          HuggingFace Inference API
+          OpenRouter stream
         </span>
       </div>
 
@@ -99,7 +99,7 @@ export default function StatusBar({
             {(totalTime / 1000).toFixed(2)}s
           </span>
         )}
-        <span className="opacity-40">AI Website Generator v1.0</span>
+        <span className="opacity-40">AI Website Generator v2.0</span>
       </div>
     </div>
   );

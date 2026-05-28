@@ -153,7 +153,7 @@ export function useStreamingGeneration(): UseStreamingGenerationReturn {
       setState((prev) => ({
         ...prev,
         isGenerating: false,
-        error: `Generation failed — ${msg}. Check your HF_TOKEN and retry.`,
+        error: `Generation failed — ${msg}. Check your OpenRouter key and retry.`,
       }));
     }
   }, []);

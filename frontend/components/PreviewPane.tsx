@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import DOMPurify from 'dompurify';
 import { Monitor, Code2, Loader2, ExternalLink } from 'lucide-react';
 import CodeViewer from './CodeViewer';
+import ExportButton from './ExportButton';
 
 /* ────────────────────────────────────────────────────────────
    Constants
@@ -17,7 +18,7 @@ const SKELETON_HTML = `
     <div style="height:10px;border-radius:6px;background:linear-gradient(90deg,#e2e8f0,#f1f5f9,#e2e8f0);background-size:200% 100%;animation:shimmer 1.5s infinite;margin-bottom:8px;width:40%"></div>
     <div style="height:10px;border-radius:6px;background:linear-gradient(90deg,#e2e8f0,#f1f5f9,#e2e8f0);background-size:200% 100%;animation:shimmer 1.5s infinite;margin-bottom:32px;width:50%"></div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:32px">
-      ${[80, 65, 75].map(w => `<div style="height:120px;border-radius:12px;background:linear-gradient(90deg,#e2e8f0,#f1f5f9,#e2e8f0);background-size:200% 100%;animation:shimmer 1.5s infinite"></div>`).join('')}
+      ${[80, 65, 75].map(() => `<div style="height:120px;border-radius:12px;background:linear-gradient(90deg,#e2e8f0,#f1f5f9,#e2e8f0);background-size:200% 100%;animation:shimmer 1.5s infinite"></div>`).join('')}
     </div>
     <div style="height:10px;border-radius:6px;background:linear-gradient(90deg,#e2e8f0,#f1f5f9,#e2e8f0);background-size:200% 100%;animation:shimmer 1.5s infinite;margin-bottom:8px"></div>
     <div style="height:10px;border-radius:6px;background:linear-gradient(90deg,#e2e8f0,#f1f5f9,#e2e8f0);background-size:200% 100%;animation:shimmer 1.5s infinite;margin-bottom:8px;width:85%"></div>
@@ -70,6 +71,10 @@ export default function PreviewPane({ code, isGenerating }: PreviewPaneProps) {
 
   /* ── Build iframe srcdoc ────────────────────────────────── */
   const buildSrcdoc = useCallback((html: string, loading: boolean): string => {
+    const stylesheetHref = typeof window !== 'undefined'
+      ? new URL('/preview-tailwind.css', window.location.origin).href
+      : '/preview-tailwind.css';
+
     let content: string;
     if (loading && !html) {
       content = SKELETON_HTML;
@@ -89,10 +94,11 @@ export default function PreviewPane({ code, isGenerating }: PreviewPaneProps) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://cdn.tailwindcss.com"><\/script>
+  <link rel="stylesheet" href="${stylesheetHref}">
   <style>
     *{box-sizing:border-box}
-    body{margin:0}
+    html,body{margin:0;min-height:100%;background:#020617;color:#e2e8f0}
+    body{overflow:auto}
   </style>
 </head>
 <body>${content}</body>
@@ -162,6 +168,8 @@ export default function PreviewPane({ code, isGenerating }: PreviewPaneProps) {
           </button>
         </div>
 
+            <ExportButton code={code} />
+
         <div className="flex items-center gap-2">
           {/* Generating indicator */}
           {isGenerating && (
@@ -178,7 +186,7 @@ export default function PreviewPane({ code, isGenerating }: PreviewPaneProps) {
             <button
               id="btn-open-in-tab"
               onClick={handleOpenInTab}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-500 transition-all duration-150"
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-600 transition-all duration-150"
               style={{
                 background: 'rgba(255,255,255,0.04)',
                 border: '1px solid var(--border)',
@@ -210,10 +218,8 @@ export default function PreviewPane({ code, isGenerating }: PreviewPaneProps) {
             id="preview-iframe"
             title="Generated website preview"
             className="w-full h-full"
-            // allow-scripts: needed for Tailwind CDN play script
-            // No allow-same-origin / allow-forms / allow-popups
             sandbox="allow-scripts"
-            style={{ border: 'none', background: '#f8fafc' }}
+            style={{ border: 'none', background: '#020617' }}
           />
         </div>
 

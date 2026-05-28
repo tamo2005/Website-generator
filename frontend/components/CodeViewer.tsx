@@ -56,7 +56,7 @@ export default function CodeViewer({ code }: CodeViewerProps) {
   if (!code) {
     return (
       <div className="h-full flex items-center justify-center">
-        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+        <p className="text-sm uppercase tracking-[0.2em]" style={{ color: 'var(--text-muted)' }}>
           Generated code will appear here…
         </p>
       </div>
@@ -67,16 +67,16 @@ export default function CodeViewer({ code }: CodeViewerProps) {
     <div className="h-full flex flex-col">
       {/* Toolbar */}
       <div
-        className="flex-none flex items-center justify-between px-4 py-2.5"
+        className="flex-none flex items-center justify-between px-4 py-3"
         style={{ borderBottom: '1px solid var(--border)' }}
       >
         <div className="flex items-center gap-3">
-          <span className="text-xs mono" style={{ color: 'var(--text-muted)' }}>
+          <span className="text-xs mono uppercase tracking-[0.18em]" style={{ color: 'var(--text-muted)' }}>
             {lineCount} lines · {charCount.toLocaleString()} chars
           </span>
           <span
-            className="px-2 py-0.5 rounded text-[10px] font-600 uppercase tracking-wider"
-            style={{ background: 'rgba(99,102,241,0.15)', color: '#818cf8' }}
+            className="px-2 py-0.5 rounded text-[10px] font-700 uppercase tracking-[0.18em]"
+            style={{ background: 'rgba(34,211,238,0.12)', color: '#67e8f9' }}
           >
             HTML
           </span>
@@ -86,7 +86,7 @@ export default function CodeViewer({ code }: CodeViewerProps) {
           <button
             id="btn-copy-code"
             onClick={handleCopy}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-500 transition-all duration-150"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-700 transition-all duration-150"
             style={{
               background: copied ? 'rgba(52,211,153,0.1)' : 'rgba(255,255,255,0.05)',
               border: `1px solid ${copied ? 'rgba(52,211,153,0.3)' : 'var(--border)'}`,
@@ -100,7 +100,7 @@ export default function CodeViewer({ code }: CodeViewerProps) {
           <button
             id="btn-download-code"
             onClick={handleDownload}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-500 transition-all duration-150"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-700 transition-all duration-150"
             style={{
               background: 'rgba(255,255,255,0.05)',
               border: '1px solid var(--border)',
@@ -128,7 +128,7 @@ export default function CodeViewer({ code }: CodeViewerProps) {
           className="flex-none py-4 pl-4 pr-3 text-right select-none"
           style={{
             borderRight: '1px solid var(--border)',
-            background: 'rgba(0,0,0,0.2)',
+            background: 'rgba(0,0,0,0.35)',
           }}
         >
           {Array.from({ length: lineCount }, (_, i) => (

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import PromptPanel from '@/components/PromptPanel';
 import PreviewPane from '@/components/PreviewPane';
 import StatusBar from '@/components/StatusBar';
@@ -56,30 +56,59 @@ export default function Page() {
           overflow: 'hidden',
         }}
       >
-        {/* Orb 1 */}
         <div
           style={{
             position: 'absolute',
-            top: '-20%',
-            left: '-10%',
-            width: '60vw',
-            height: '60vw',
-            borderRadius: '50%',
+            inset: '8% 6%',
+            border: '1px solid rgba(255,255,255,0.04)',
+            borderRadius: '32px',
             background:
-              'radial-gradient(circle, rgba(99,102,241,0.08) 0%, transparent 70%)',
+              'linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.005))',
           }}
         />
-        {/* Orb 2 */}
         <div
           style={{
             position: 'absolute',
-            bottom: '-20%',
-            right: '-10%',
-            width: '50vw',
-            height: '50vw',
+            inset: 0,
+            backgroundImage:
+              'linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px)',
+            backgroundSize: '72px 72px',
+            maskImage: 'linear-gradient(180deg, rgba(0,0,0,0.55), transparent 82%)',
+          }}
+        />
+        <div
+          style={{
+            position: 'absolute',
+            top: '-18%',
+            left: '-8%',
+            width: '52vw',
+            height: '52vw',
             borderRadius: '50%',
             background:
-              'radial-gradient(circle, rgba(168,85,247,0.07) 0%, transparent 70%)',
+              'radial-gradient(circle, rgba(34,211,238,0.12) 0%, transparent 68%)',
+          }}
+        />
+        <div
+          style={{
+            position: 'absolute',
+            bottom: '-22%',
+            right: '-8%',
+            width: '48vw',
+            height: '48vw',
+            borderRadius: '50%',
+            background:
+              'radial-gradient(circle, rgba(244,63,94,0.1) 0%, transparent 70%)',
+          }}
+        />
+        <div
+          style={{
+            position: 'absolute',
+            inset: '12% 18% auto auto',
+            width: 240,
+            height: 240,
+            borderRadius: '50%',
+            border: '1px solid rgba(34,211,238,0.16)',
+            filter: 'blur(0.4px)',
           }}
         />
       </div>
@@ -90,7 +119,7 @@ export default function Page() {
         style={{ position: 'relative', zIndex: 1 }}
       >
         {/* Sidebar / Prompt Panel */}
-        <div style={{ width: 340, minWidth: 300, flexShrink: 0 }}>
+        <div style={{ width: 360, minWidth: 320, flexShrink: 0 }}>
           <PromptPanel
             prompt={prompt}
             onPromptChange={handlePromptChange}
@@ -135,8 +164,6 @@ export default function Page() {
 /* ────────────────────────────────────────────────────────────
    Minimal hook to avoid prop drilling React.useState
 ──────────────────────────────────────────────────────────── */
-import { useState } from 'react';
-
 function usePromptState(initial: string): [string, (v: string) => void] {
   const [value, setValue] = useState(initial);
   return [value, setValue];
