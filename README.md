@@ -10,7 +10,7 @@ This guide gives you a **step-by-step setup** and implementation plan for buildi
 ## 1) Local Dev-Environment Setup (Do This First)
 
 ## 1.1 Install prerequisites
-- Node.js **18.17+** (or Node 20 LTS)
+- Node.js **20+** (or Node 22 LTS)
 - Python **3.10+**
 - VS Code
 - Git
@@ -53,6 +53,7 @@ ALLOWED_ORIGIN=http://localhost:3000
 cd ../frontend
 npx create-next-app@14 . --ts --tailwind --app --eslint
 npm install lucide-react
+npm install dompurify
 ```
 
 Create `/frontend/.env.local`:
@@ -60,6 +61,8 @@ Create `/frontend/.env.local`:
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
+
+Also create `/frontend/public/preview-tailwind.css` from your built Tailwind output for safe iframe previews without runtime script execution.
 
 ## 1.5 Run both services locally
 
@@ -141,7 +144,9 @@ Learn token streaming patterns:
 
 ```python
 import os
-from fastapi import FastAPI, Query
+import re
+from pydantic import BaseModel, Field
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from dotenv import load_dotenv
@@ -170,15 +175,20 @@ SYSTEM_PROMPT = (
     "You are a senior frontend engineer. Return ONLY valid HTML with Tailwind classes. "
     "Do not include markdown fences, explanations, or backticks.\nUser request: "
 )
+MAX_PROMPT_CHARS = int(os.getenv("MAX_PROMPT_CHARS", "12000"))
+
+class GenerateRequest(BaseModel):
+    # Keep configurable for different model context windows and provider payload limits.
+    prompt: str = Field(min_length=3, max_length=MAX_PROMPT_CHARS)
 
 async def stream_html(prompt: str):
     async for chunk in llm.astream(SYSTEM_PROMPT + prompt):
-        text = str(chunk).replace("```html", "").replace("```", "")
+        text = re.sub(r"```(?:html)?", "", str(chunk), flags=re.IGNORECASE)
         yield f"data: {text}\n\n"
 
-@app.get("/api/generate")
-async def generate(prompt: str = Query(..., min_length=3, max_length=4000)):
-    return StreamingResponse(stream_html(prompt), media_type="text/event-stream")
+@app.post("/api/generate")
+async def generate(payload: GenerateRequest):
+    return StreamingResponse(stream_html(payload.prompt), media_type="text/event-stream")
 ```
 
 ## 4.2 Next.js client streaming (`frontend/app/page.tsx`)
@@ -187,34 +197,43 @@ async def generate(prompt: str = Query(..., min_length=3, max_length=4000)):
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import DOMPurify from 'dompurify';
 
 const initialMarkup =
   '<div class="p-8 text-center text-slate-400">Your site preview will appear here.</div>';
+const PREVIEW_DEBOUNCE_MS = 100;
 
 export default function Page() {
   const [prompt, setPrompt] = useState('');
   const [code, setCode] = useState(initialMarkup);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  // Debounced preview updates to reduce iframe thrash.
+  // Tune PREVIEW_DEBOUNCE_MS upward if low-end devices struggle with iframe repaints.
   useEffect(() => {
     const t = setTimeout(() => {
       if (!iframeRef.current) return;
-      const tailwindCdn = '<script src="https://cdn.tailwindcss.com"></script>';
-      iframeRef.current.srcdoc = `${tailwindCdn}<body class="bg-slate-50">${code}</body>`;
-    }, 100);
+      const safeCode = DOMPurify.sanitize(code);
+      const tailwindStylesheet = '<link rel="stylesheet" href="/preview-tailwind.css" />';
+      iframeRef.current.srcdoc = `${tailwindStylesheet}<body class="bg-slate-50">${safeCode}</body>`;
+    }, PREVIEW_DEBOUNCE_MS);
 
     return () => clearTimeout(t);
   }, [code]);
 
   const generate = async () => {
     setLoading(true);
+    setError('');
     setCode('<div class="animate-pulse p-8">Generating layout...</div>');
 
     try {
       const base = process.env.NEXT_PUBLIC_API_URL;
-      const res = await fetch(`${base}/api/generate?prompt=${encodeURIComponent(prompt)}`);
+      const res = await fetch(`${base}/api/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt }),
+      });
       if (!res.body) throw new Error('No response stream');
 
       const reader = res.body.getReader();
@@ -233,12 +252,14 @@ export default function Page() {
         for (const evt of events) {
           const line = evt.split('\n').find((l) => l.startsWith('data: '));
           if (!line) continue;
-          const token = line.replace(/^data:\s*/, '').replace(/```html|```/g, '');
+          const token = line.replace(/^data:\s*/, '');
           setCode((prev) => prev + token);
         }
       }
     } catch (e) {
       console.error(e);
+      const msg = e instanceof Error ? e.message : 'Unknown error';
+      setError(`Generation failed (${msg}). Retry or reduce prompt size.`);
     } finally {
       setLoading(false);
     }
@@ -261,10 +282,17 @@ export default function Page() {
         >
           {loading ? 'Generating...' : 'Generate'}
         </button>
+        {error ? <p className="text-xs text-red-400">{error}</p> : null}
       </section>
 
       <section className="p-4">
-        <iframe ref={iframeRef} className="h-full w-full rounded bg-white" title="Preview" />
+        <iframe
+          ref={iframeRef}
+          className="h-full w-full rounded bg-white"
+          title="Preview"
+          // No extra permissions: do not allow scripts, same-origin, forms, or popups.
+          sandbox=""
+        />
       </section>
     </main>
   );
