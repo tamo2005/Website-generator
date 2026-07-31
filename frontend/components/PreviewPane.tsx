@@ -6,9 +6,6 @@ import { Monitor, Code2, Loader2, ExternalLink } from 'lucide-react';
 import CodeViewer from './CodeViewer';
 import ExportButton from './ExportButton';
 
-/* ────────────────────────────────────────────────────────────
-   Constants
-──────────────────────────────────────────────────────────── */
 const DEBOUNCE_MS = 120;
 
 const SKELETON_HTML = `
@@ -51,9 +48,6 @@ const EMPTY_HTML = `
   <p style="margin:0;font-size:13px">Describe your site and click <strong>Generate Website</strong></p>
 </div>`;
 
-/* ────────────────────────────────────────────────────────────
-   Props
-──────────────────────────────────────────────────────────── */
 interface PreviewPaneProps {
   code: string;
   isGenerating: boolean;
@@ -61,15 +55,11 @@ interface PreviewPaneProps {
 
 type Tab = 'preview' | 'code';
 
-/* ────────────────────────────────────────────────────────────
-   Component
-──────────────────────────────────────────────────────────── */
 export default function PreviewPane({ code, isGenerating }: PreviewPaneProps) {
   const [activeTab, setActiveTab] = useState<Tab>('preview');
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  /* ── Build iframe srcdoc ────────────────────────────────── */
   const buildSrcdoc = useCallback((html: string, loading: boolean): string => {
     const stylesheetHref = typeof window !== 'undefined'
       ? new URL('/preview-tailwind.css', window.location.origin).href
@@ -105,22 +95,18 @@ export default function PreviewPane({ code, isGenerating }: PreviewPaneProps) {
 </html>`;
   }, []);
 
-  /* ── Debounced iframe update ─────────────────────────────── */
   useEffect(() => {
     if (activeTab !== 'preview') return;
-
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       if (!iframeRef.current) return;
       iframeRef.current.srcdoc = buildSrcdoc(code, isGenerating);
     }, DEBOUNCE_MS);
-
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, [code, isGenerating, activeTab, buildSrcdoc]);
 
-  /* ── Open in new tab ──────────────────────────────────────── */
   const handleOpenInTab = useCallback(() => {
     if (!code) return;
     const safe = DOMPurify.sanitize(code, {
@@ -160,7 +146,7 @@ export default function PreviewPane({ code, isGenerating }: PreviewPaneProps) {
             {code && (
               <span
                 className="px-1.5 py-0.5 rounded-full text-[9px] font-600"
-                style={{ background: 'rgba(99,102,241,0.2)', color: '#a5b4fc' }}
+                style={{ background: 'rgba(129,140,248,0.12)', color: 'var(--accent)' }}
               >
                 {code.split('\n').length}L
               </span>
@@ -168,27 +154,25 @@ export default function PreviewPane({ code, isGenerating }: PreviewPaneProps) {
           </button>
         </div>
 
-            <ExportButton code={code} />
+        <ExportButton code={code} />
 
         <div className="flex items-center gap-2">
-          {/* Generating indicator */}
           {isGenerating && (
             <div className="flex items-center gap-1.5 animate-fade-in">
-              <Loader2 size={12} className="animate-spin" style={{ color: '#818cf8' }} />
-              <span className="text-[11px] font-500" style={{ color: '#818cf8' }}>
+              <Loader2 size={12} className="animate-spin" style={{ color: 'var(--accent)' }} />
+              <span className="text-[11px] font-500" style={{ color: 'var(--accent)' }}>
                 Generating…
               </span>
             </div>
           )}
 
-          {/* Open in new tab */}
           {code && (
             <button
               id="btn-open-in-tab"
               onClick={handleOpenInTab}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-600 transition-all duration-150"
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[11px] font-600 transition-all duration-150"
               style={{
-                background: 'rgba(255,255,255,0.04)',
+                background: 'rgba(255,255,255,0.03)',
                 border: '1px solid var(--border)',
                 color: 'var(--text-secondary)',
               }}
@@ -209,7 +193,6 @@ export default function PreviewPane({ code, isGenerating }: PreviewPaneProps) {
 
       {/* ── Content area ────────────────────────────────────── */}
       <div className="flex-1 overflow-hidden relative">
-        {/* Preview tab */}
         <div
           className={`absolute inset-0 transition-opacity duration-200 ${activeTab === 'preview' ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
         >
@@ -223,10 +206,9 @@ export default function PreviewPane({ code, isGenerating }: PreviewPaneProps) {
           />
         </div>
 
-        {/* Code tab */}
         <div
           className={`absolute inset-0 overflow-hidden transition-opacity duration-200 ${activeTab === 'code' ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
-          style={{ background: 'rgba(0,0,0,0.3)' }}
+          style={{ background: 'rgba(0,0,0,0.2)' }}
         >
           <CodeViewer code={code} />
         </div>

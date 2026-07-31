@@ -1,6 +1,7 @@
 'use client';
 
 import { Sparkles, Zap, Square, ChevronRight } from 'lucide-react';
+import UserMenu from './UserMenu';
 
 /* ────────────────────────────────────────────────────────────
    Preset definitions
@@ -86,33 +87,35 @@ export default function PromptPanel({
       className="flex flex-col h-full overflow-hidden animate-slide-in-left"
       style={{
         borderRight: '1px solid var(--border)',
-        background: 'linear-gradient(180deg, rgba(255,255,255,0.03), rgba(2,6,23,0.55))',
-        boxShadow: 'inset -1px 0 0 rgba(255,255,255,0.03)',
+        background: 'linear-gradient(180deg, var(--bg-surface), var(--bg-base))',
       }}
     >
       {/* ── Header ─────────────────────────────────────────── */}
       <div
-        className="flex-none px-5 py-5"
+        className="flex-none px-5 py-4"
         style={{ borderBottom: '1px solid var(--border)' }}
       >
-        <div className="flex items-center gap-3 mb-1">
-          <div
-            className="w-10 h-10 rounded-2xl flex items-center justify-center"
-            style={{
-              background: 'linear-gradient(135deg, #22d3ee, #a855f7, #f43f5e)',
-              boxShadow: '0 0 24px rgba(168,85,247,0.45)',
-            }}
-          >
-            <Sparkles size={16} className="text-white" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div
+              className="w-9 h-9 rounded-xl flex items-center justify-center animate-float"
+              style={{
+                background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                boxShadow: '0 4px 16px rgba(99,102,241,0.25)',
+              }}
+            >
+              <Sparkles size={14} className="text-white" />
+            </div>
+            <div>
+              <h1 className="text-sm font-700 tracking-tight" style={{ color: 'var(--text-primary)' }}>
+                Site Generator
+              </h1>
+              <p className="text-[10px] tracking-wide" style={{ color: 'var(--text-muted)' }}>
+                Powered by AI
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-sm font-800 tracking-tight uppercase" style={{ color: 'var(--text-primary)' }}>
-              AI Website Generator
-            </h1>
-            <p className="text-[10px] uppercase tracking-[0.2em]" style={{ color: 'var(--text-muted)' }}>
-              Powered by OpenRouter · Kimi
-            </p>
-          </div>
+          <UserMenu />
         </div>
       </div>
 
@@ -122,7 +125,7 @@ export default function PromptPanel({
         {/* Prompt label */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <label className="text-xs font-600 uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
+            <label className="text-xs font-600 tracking-wide" style={{ color: 'var(--text-secondary)' }}>
               Describe your website
             </label>
             <span
@@ -135,8 +138,8 @@ export default function PromptPanel({
 
           {/* Progress bar */}
           <div
-            className="w-full h-0.5 rounded-full mb-2 overflow-hidden"
-            style={{ background: 'rgba(255,255,255,0.06)' }}
+            className="w-full h-[2px] rounded-full mb-2 overflow-hidden"
+            style={{ background: 'var(--border)' }}
           >
             <div
               className="h-full rounded-full transition-all duration-300"
@@ -145,7 +148,7 @@ export default function PromptPanel({
                 background:
                   charPct > 0.9
                     ? 'var(--error)'
-                    : 'linear-gradient(90deg, #6366f1, #a855f7)',
+                    : 'linear-gradient(90deg, var(--accent), var(--accent-bright))',
               }}
             />
           </div>
@@ -153,10 +156,10 @@ export default function PromptPanel({
           <textarea
             id="prompt-textarea"
             className="prompt-textarea"
-            rows={9}
+            rows={8}
             value={prompt}
             onChange={(e) => onPromptChange(e.target.value)}
-            placeholder="Build a SaaS landing page for a productivity app with a hero section, feature cards, and pricing table..."
+            placeholder="Build a SaaS landing page with a hero section, feature cards, and pricing table..."
             disabled={isGenerating}
             maxLength={maxChars}
           />
@@ -168,18 +171,18 @@ export default function PromptPanel({
             Quick Presets
           </p>
           <div className="flex flex-wrap gap-1.5">
-            {PRESETS.map((preset) => (
+            {PRESETS.map((preset, i) => (
               <button
                 key={preset.label}
                 id={`preset-${preset.label.toLowerCase().replace(/\s+/g, '-')}`}
-                className="preset-chip"
+                className={`preset-chip animate-fade-in-up stagger-${i + 1}`}
                 onClick={() => onPromptChange(preset.prompt)}
                 disabled={isGenerating}
                 title={preset.prompt.slice(0, 100) + '…'}
               >
                 <span>{preset.icon}</span>
                 <span>{preset.label}</span>
-                <ChevronRight size={10} className="opacity-50" />
+                <ChevronRight size={10} style={{ opacity: 0.4 }} />
               </button>
             ))}
           </div>
@@ -188,10 +191,10 @@ export default function PromptPanel({
         {/* Error */}
         {error && (
           <div
-            className="rounded-xl px-3.5 py-2.5 text-xs leading-relaxed animate-fade-in"
+            className="rounded-lg px-3.5 py-2.5 text-xs leading-relaxed animate-scale-in"
             style={{
-              background: 'rgba(244,63,94,0.08)',
-              border: '1px solid rgba(244,63,94,0.22)',
+              background: 'rgba(248,113,113,0.06)',
+              border: '1px solid rgba(248,113,113,0.15)',
               color: 'var(--error)',
             }}
           >
@@ -202,13 +205,13 @@ export default function PromptPanel({
         {/* Stats */}
         {(tokenCount > 0 || isGenerating) && (
           <div
-            className="rounded-xl px-3.5 py-3 animate-fade-in"
+            className="rounded-lg px-3.5 py-3 animate-fade-in"
             style={{
-              background: 'rgba(34,211,238,0.06)',
-              border: '1px solid rgba(34,211,238,0.14)',
+              background: 'rgba(129,140,248,0.04)',
+              border: '1px solid rgba(129,140,248,0.1)',
             }}
           >
-            <p className="text-[10px] font-700 uppercase tracking-[0.2em] mb-2" style={{ color: '#67e8f9' }}>
+            <p className="text-[10px] font-600 uppercase tracking-wider mb-2" style={{ color: 'var(--accent)' }}>
               Generation Stats
             </p>
             <div className="grid grid-cols-2 gap-1.5">
@@ -239,11 +242,11 @@ export default function PromptPanel({
           <button
             id="btn-cancel"
             onClick={onCancel}
-            className="w-full py-3 rounded-xl flex items-center justify-center gap-2 text-sm font-600 transition-all duration-200"
+            className="w-full py-3 rounded-lg flex items-center justify-center gap-2 text-sm font-600 transition-all duration-200"
             style={{
-              background: 'rgba(244,63,94,0.1)',
-              border: '1px solid rgba(244,63,94,0.3)',
-              color: '#f87171',
+              background: 'rgba(248,113,113,0.06)',
+              border: '1px solid rgba(248,113,113,0.18)',
+              color: 'var(--error)',
             }}
           >
             <Square size={14} />
@@ -268,8 +271,14 @@ export default function PromptPanel({
 /* ── Tiny helper ─────────────────────────────────────────── */
 function StatRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between rounded-lg border px-2.5 py-2" style={{ borderColor: 'rgba(255,255,255,0.06)', background: 'rgba(2,6,23,0.55)' }}>
-      <span className="text-[10px] uppercase tracking-[0.16em]" style={{ color: 'var(--text-muted)' }}>{label}</span>
+    <div
+      className="flex items-center justify-between rounded-md border px-2.5 py-1.5"
+      style={{
+        borderColor: 'var(--border)',
+        background: 'rgba(10,10,18,0.5)',
+      }}
+    >
+      <span className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{label}</span>
       <span className="text-[11px] font-600 mono" style={{ color: 'var(--text-secondary)' }}>{value}</span>
     </div>
   );

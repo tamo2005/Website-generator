@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
+import { getAccessToken } from '@/lib/api';
 
 /* ────────────────────────────────────────────────────────────
    Types
@@ -75,18 +76,27 @@ export function useStreamingGeneration(): UseStreamingGenerationReturn {
     });
 
     try {
-      const res = await fetch(`${API_URL}/api/generate`, {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      const token = getAccessToken();
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const res = await fetch(`${API_URL}/api/v1/generate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ prompt: prompt.trim() }),
         signal: controller.signal,
+        credentials: 'include',
       });
 
       if (!res.ok) {
         let detail = `HTTP ${res.status}`;
         try {
           const json = await res.json();
-          detail = json.detail || detail;
+          detail = json.error?.message || json.detail || json.message || detail;
         } catch {}
         throw new Error(detail);
       }
@@ -149,11 +159,39 @@ export function useStreamingGeneration(): UseStreamingGenerationReturn {
         setState((prev) => ({ ...prev, isGenerating: false }));
         return;
       }
-      const msg = err instanceof Error ? err.message : 'Unexpected error';
+      const rawMsg = err instanceof Error ? err.message : 'Unexpected error';
+      let userMsg = rawMsg;
+
+      if (
+        rawMsg.includes('Failed to fetch') ||
+        rawMsg.includes('NetworkError') ||
+        rawMsg.includes('Load failed')
+      ) {
+        userMsg =
+          'Could not connect to the backend server (http://localhost:8000). Please ensure the backend is running.';
+      } else if (
+        rawMsg.includes('Not authenticated') ||
+        rawMsg.includes('HTTP 401') ||
+        rawMsg.includes('AUTHENTICATION_REQUIRED')
+      ) {
+        userMsg = 'Authentication required. Please log in to generate websites.';
+      } else if (
+        rawMsg.includes('Email not verified') ||
+        rawMsg.includes('HTTP 403') ||
+        rawMsg.includes('EMAIL_NOT_VERIFIED')
+      ) {
+        userMsg = 'Email verification required. Please verify your account to generate websites.';
+      } else if (rawMsg.includes('OPENROUTER_API_KEY')) {
+        userMsg =
+          'OpenRouter API key is missing or not configured. Please set OPENROUTER_API_KEY in backend/.env.';
+      } else if (!userMsg.startsWith('Generation failed')) {
+        userMsg = `Generation failed — ${rawMsg}. Check your OpenRouter key and retry.`;
+      }
+
       setState((prev) => ({
         ...prev,
         isGenerating: false,
-        error: `Generation failed — ${msg}. Check your OpenRouter key and retry.`,
+        error: userMsg,
       }));
     }
   }, []);

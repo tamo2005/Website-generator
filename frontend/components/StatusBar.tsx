@@ -2,9 +2,6 @@
 
 import { Cpu, Globe, Clock } from 'lucide-react';
 
-/* ────────────────────────────────────────────────────────────
-   Props
-──────────────────────────────────────────────────────────── */
 interface StatusBarProps {
   isGenerating: boolean;
   tokenCount: number;
@@ -13,9 +10,6 @@ interface StatusBarProps {
   hasCode: boolean;
 }
 
-/* ────────────────────────────────────────────────────────────
-   Component
-──────────────────────────────────────────────────────────── */
 export default function StatusBar({
   isGenerating,
   tokenCount,
@@ -23,7 +17,6 @@ export default function StatusBar({
   error,
   hasCode,
 }: StatusBarProps) {
-  /* derive connection/status */
   let dotClass = '';
   let statusText = 'Ready';
 
@@ -43,16 +36,19 @@ export default function StatusBar({
 
   return (
     <div
-      className="flex-none flex items-center justify-between px-4 h-10 text-[10px]"
+      className="flex-none flex items-center justify-between px-4 h-9 text-[10px]"
       style={{
         borderTop: '1px solid var(--border)',
-        background: 'linear-gradient(180deg, rgba(2,6,23,0.65), rgba(0,0,0,0.92))',
+        background: 'var(--bg-surface)',
         color: 'var(--text-muted)',
       }}
     >
       {/* Left: status */}
       <div className="flex items-center gap-3">
-        <div className="flex items-center gap-1.5 rounded-full border px-2.5 py-1" style={{ borderColor: 'rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.03)' }}>
+        <div
+          className="flex items-center gap-1.5 rounded-full border px-2.5 py-0.5"
+          style={{ borderColor: 'var(--border)', background: 'rgba(255,255,255,0.02)' }}
+        >
           <div className={`status-dot ${dotClass}`} />
           <span>{statusText}</span>
         </div>
@@ -61,13 +57,13 @@ export default function StatusBar({
           <div className="flex items-center gap-1 animate-fade-in">
             <div
               className="h-1 rounded-full overflow-hidden"
-              style={{ width: 60, background: 'rgba(255,255,255,0.06)' }}
+              style={{ width: 48, background: 'var(--border)' }}
             >
               <div
                 className="h-full rounded-full animate-gradient"
                 style={{
                   width: '40%',
-                  background: 'linear-gradient(90deg,#6366f1,#a855f7,#6366f1)',
+                  background: 'linear-gradient(90deg, var(--accent), var(--accent-bright), var(--accent))',
                   backgroundSize: '200% 100%',
                 }}
               />
@@ -80,11 +76,11 @@ export default function StatusBar({
       <div className="hidden md:flex items-center gap-3">
         <span className="flex items-center gap-1">
           <Cpu size={9} />
-          moonshotai/kimi-k2.6:free
+          kimi-k2
         </span>
         <span className="flex items-center gap-1">
           <Globe size={9} />
-          OpenRouter stream
+          OpenRouter
         </span>
       </div>
 
@@ -99,7 +95,7 @@ export default function StatusBar({
             {(totalTime / 1000).toFixed(2)}s
           </span>
         )}
-        <span className="opacity-40">AI Website Generator v2.0</span>
+        <span style={{ opacity: 0.35 }}>v2.0</span>
       </div>
     </div>
   );

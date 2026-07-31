@@ -5,6 +5,10 @@ backend/.venv/
 backend/__pycache__/
 backend/*.pyc
 backend/.env
+backend/*.db
+backend/*.sqlite3
+*.db
+*.sqlite3
 
 # Frontend
 frontend/.next/

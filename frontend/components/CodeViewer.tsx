@@ -3,28 +3,20 @@
 import { useState, useRef, useCallback } from 'react';
 import { Copy, Download, CheckCheck } from 'lucide-react';
 
-/* ────────────────────────────────────────────────────────────
-   Props
-──────────────────────────────────────────────────────────── */
 interface CodeViewerProps {
   code: string;
 }
 
-/* ────────────────────────────────────────────────────────────
-   Component
-──────────────────────────────────────────────────────────── */
 export default function CodeViewer({ code }: CodeViewerProps) {
   const [copied, setCopied] = useState(false);
   const codeRef = useRef<HTMLPreElement>(null);
 
-  /* ── Copy ──────────────────────────────────────────────── */
   const handleCopy = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(code);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Fallback for environments without clipboard API
       const el = document.createElement('textarea');
       el.value = code;
       document.body.appendChild(el);
@@ -36,7 +28,6 @@ export default function CodeViewer({ code }: CodeViewerProps) {
     }
   }, [code]);
 
-  /* ── Download ──────────────────────────────────────────── */
   const handleDownload = useCallback(() => {
     const blob = new Blob([code], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -49,14 +40,13 @@ export default function CodeViewer({ code }: CodeViewerProps) {
     URL.revokeObjectURL(url);
   }, [code]);
 
-  /* ── Line count ────────────────────────────────────────── */
   const lineCount = code.split('\n').length;
   const charCount = code.length;
 
   if (!code) {
     return (
       <div className="h-full flex items-center justify-center">
-        <p className="text-sm uppercase tracking-[0.2em]" style={{ color: 'var(--text-muted)' }}>
+        <p className="text-sm tracking-wide" style={{ color: 'var(--text-muted)' }}>
           Generated code will appear here…
         </p>
       </div>
@@ -67,16 +57,16 @@ export default function CodeViewer({ code }: CodeViewerProps) {
     <div className="h-full flex flex-col">
       {/* Toolbar */}
       <div
-        className="flex-none flex items-center justify-between px-4 py-3"
+        className="flex-none flex items-center justify-between px-4 py-2.5"
         style={{ borderBottom: '1px solid var(--border)' }}
       >
         <div className="flex items-center gap-3">
-          <span className="text-xs mono uppercase tracking-[0.18em]" style={{ color: 'var(--text-muted)' }}>
+          <span className="text-xs mono tracking-wide" style={{ color: 'var(--text-muted)' }}>
             {lineCount} lines · {charCount.toLocaleString()} chars
           </span>
           <span
-            className="px-2 py-0.5 rounded text-[10px] font-700 uppercase tracking-[0.18em]"
-            style={{ background: 'rgba(34,211,238,0.12)', color: '#67e8f9' }}
+            className="px-2 py-0.5 rounded text-[10px] font-600 uppercase tracking-wider"
+            style={{ background: 'rgba(129,140,248,0.1)', color: 'var(--accent)' }}
           >
             HTML
           </span>
@@ -86,10 +76,10 @@ export default function CodeViewer({ code }: CodeViewerProps) {
           <button
             id="btn-copy-code"
             onClick={handleCopy}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-700 transition-all duration-150"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-600 transition-all duration-150"
             style={{
-              background: copied ? 'rgba(52,211,153,0.1)' : 'rgba(255,255,255,0.05)',
-              border: `1px solid ${copied ? 'rgba(52,211,153,0.3)' : 'var(--border)'}`,
+              background: copied ? 'rgba(52,211,153,0.08)' : 'rgba(255,255,255,0.03)',
+              border: `1px solid ${copied ? 'rgba(52,211,153,0.2)' : 'var(--border)'}`,
               color: copied ? 'var(--success)' : 'var(--text-secondary)',
             }}
           >
@@ -100,15 +90,15 @@ export default function CodeViewer({ code }: CodeViewerProps) {
           <button
             id="btn-download-code"
             onClick={handleDownload}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-700 transition-all duration-150"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-600 transition-all duration-150"
             style={{
-              background: 'rgba(255,255,255,0.05)',
+              background: 'rgba(255,255,255,0.03)',
               border: '1px solid var(--border)',
               color: 'var(--text-secondary)',
             }}
             onMouseEnter={(e) => {
               (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-primary)';
-              (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(99,102,241,0.4)';
+              (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border-accent)';
             }}
             onMouseLeave={(e) => {
               (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-secondary)';
@@ -116,7 +106,7 @@ export default function CodeViewer({ code }: CodeViewerProps) {
             }}
           >
             <Download size={12} />
-            Download .html
+            Download
           </button>
         </div>
       </div>
@@ -128,14 +118,14 @@ export default function CodeViewer({ code }: CodeViewerProps) {
           className="flex-none py-4 pl-4 pr-3 text-right select-none"
           style={{
             borderRight: '1px solid var(--border)',
-            background: 'rgba(0,0,0,0.35)',
+            background: 'rgba(0,0,0,0.25)',
           }}
         >
           {Array.from({ length: lineCount }, (_, i) => (
             <div
               key={i}
-              className="text-[11px] mono leading-[1.6] block"
-              style={{ color: 'var(--text-muted)', opacity: 0.6 }}
+              className="text-[11px] mono leading-[1.65] block"
+              style={{ color: 'var(--text-muted)', opacity: 0.5 }}
             >
               {i + 1}
             </div>

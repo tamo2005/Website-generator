@@ -1,5 +1,7 @@
 """
-streaming.py — SSE formatting and token sanitization utilities
+utils/streaming.py — SSE formatting and token sanitization utilities
+
+Moved from the project root to the layered architecture.
 """
 import re
 

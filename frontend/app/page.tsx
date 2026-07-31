@@ -1,15 +1,27 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import PromptPanel from '@/components/PromptPanel';
 import PreviewPane from '@/components/PreviewPane';
 import StatusBar from '@/components/StatusBar';
 import { useStreamingGeneration } from '@/hooks/useStreamingGeneration';
+import { useAuth } from '@/contexts/AuthContext';
 
 /* ────────────────────────────────────────────────────────────
    WorkspaceContainer — owns all global state
 ──────────────────────────────────────────────────────────── */
 export default function Page() {
+  const router = useRouter();
+  const { isAuthenticated, isLoading } = useAuth();
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.replace('/auth/login');
+    }
+  }, [isLoading, isAuthenticated, router]);
+
   const {
     streamedCode,
     isGenerating,
@@ -23,8 +35,6 @@ export default function Page() {
     reset,
   } = useStreamingGeneration();
 
-  // We keep prompt state local (not in the hook) so the textarea
-  // stays responsive even during streaming.
   const [prompt, setPrompt] = usePromptState('');
 
   const handleGenerate = useCallback(() => {
@@ -34,88 +44,37 @@ export default function Page() {
   const handlePromptChange = useCallback(
     (v: string) => {
       setPrompt(v);
-      // If there was an error and the user starts typing, clear it
       if (error) reset();
     },
     [setPrompt, error, reset],
   );
+
+  // Auth loading state
+  if (isLoading) {
+    return (
+      <div className="loading-screen">
+        <div className="loading-orb" />
+      </div>
+    );
+  }
+
+  // Not authenticated — will redirect via useEffect
+  if (!isAuthenticated) {
+    return (
+      <div className="loading-screen">
+        <div className="loading-orb" />
+      </div>
+    );
+  }
 
   return (
     <div
       className="flex flex-col"
       style={{ height: '100dvh', background: 'var(--bg-base)' }}
     >
-      {/* ── Decorative background ───────────────────────────── */}
-      <div
-        aria-hidden="true"
-        style={{
-          position: 'fixed',
-          inset: 0,
-          pointerEvents: 'none',
-          zIndex: 0,
-          overflow: 'hidden',
-        }}
-      >
-        <div
-          style={{
-            position: 'absolute',
-            inset: '8% 6%',
-            border: '1px solid rgba(255,255,255,0.04)',
-            borderRadius: '32px',
-            background:
-              'linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.005))',
-          }}
-        />
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            backgroundImage:
-              'linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px)',
-            backgroundSize: '72px 72px',
-            maskImage: 'linear-gradient(180deg, rgba(0,0,0,0.55), transparent 82%)',
-          }}
-        />
-        <div
-          style={{
-            position: 'absolute',
-            top: '-18%',
-            left: '-8%',
-            width: '52vw',
-            height: '52vw',
-            borderRadius: '50%',
-            background:
-              'radial-gradient(circle, rgba(34,211,238,0.12) 0%, transparent 68%)',
-          }}
-        />
-        <div
-          style={{
-            position: 'absolute',
-            bottom: '-22%',
-            right: '-8%',
-            width: '48vw',
-            height: '48vw',
-            borderRadius: '50%',
-            background:
-              'radial-gradient(circle, rgba(244,63,94,0.1) 0%, transparent 70%)',
-          }}
-        />
-        <div
-          style={{
-            position: 'absolute',
-            inset: '12% 18% auto auto',
-            width: 240,
-            height: 240,
-            borderRadius: '50%',
-            border: '1px solid rgba(34,211,238,0.16)',
-            filter: 'blur(0.4px)',
-          }}
-        />
-      </div>
-
       {/* ── Main workspace ──────────────────────────────────── */}
       <main
-        className="flex flex-1 overflow-hidden"
+        className="flex flex-1 overflow-hidden animate-fade-in"
         style={{ position: 'relative', zIndex: 1 }}
       >
         {/* Sidebar / Prompt Panel */}
@@ -134,7 +93,7 @@ export default function Page() {
           />
         </div>
 
-        {/* Resizable divider visual */}
+        {/* Divider */}
         <div
           style={{
             width: 1,
