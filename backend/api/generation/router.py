@@ -22,6 +22,15 @@ from core.dependencies import get_current_verified_user
 from core.responses import api_response
 from db.session import get_db
 from models.user import User
+from schemas.generation import (
+    AnimationPreset,
+    ContentTone,
+    GenerationRequest,
+    ImageCounts,
+    StylePreset,
+    ThemeMode,
+    WebsiteType,
+)
 from services.llm_service import MODEL_ID, stream_html_tokens
 from utils.streaming import format_sse, format_sse_done, format_sse_error
 
@@ -41,6 +50,16 @@ class GenerateRequest(BaseModel):
         description="Natural-language description of the website to generate.",
         examples=["Build a SaaS landing page for a note-taking app"],
     )
+    # Phase 6: Optional configuration from the frontend wizard
+    website_type: Optional[str] = Field(default=None, description="Website type override")
+    theme: Optional[str] = Field(default=None, description="Theme mode: dark/light/auto")
+    style: Optional[str] = Field(default=None, description="Style preset: modern/minimal/glassmorphism/etc.")
+    color: Optional[str] = Field(default=None, description="Color hint: blue/purple/green/etc.")
+    animations: Optional[str] = Field(default=None, description="Animation preset: none/minimal/smooth/fancy")
+    content_tone: Optional[str] = Field(default=None, description="Content tone: professional/marketing/casual/etc.")
+    sections: Optional[list[str]] = Field(default=None, description="Explicit section selection")
+    brand_name: Optional[str] = Field(default=None, description="Brand name override")
+    image_counts: Optional[dict] = Field(default=None, description="Image counts per section type")
 
 
 class ExportRequest(BaseModel):
@@ -129,7 +148,29 @@ async def generate(
             pipeline = GenerationPipelineV1(provider=provider, config=config)
 
             logger.info(f"Executing GenerationPipelineV1 for prompt: {prompt[:50]}...")
-            result = await pipeline.run(prompt)
+
+            # Phase 6: Build GenerationRequest from payload config
+            gen_request = None
+            if any([
+                payload.website_type, payload.theme, payload.style,
+                payload.color, payload.animations, payload.sections,
+                payload.content_tone, payload.brand_name, payload.image_counts,
+            ]):
+                gen_request = GenerationRequest(
+                    prompt=prompt,
+                    website_type=WebsiteType(payload.website_type) if payload.website_type else None,
+                    theme=ThemeMode(payload.theme) if payload.theme else None,
+                    style=StylePreset(payload.style) if payload.style else None,
+                    color=payload.color,
+                    animations=AnimationPreset(payload.animations) if payload.animations else None,
+                    content_tone=ContentTone(payload.content_tone) if payload.content_tone else None,
+                    sections=payload.sections,
+                    brand_name=payload.brand_name,
+                    image_counts=ImageCounts(**payload.image_counts) if payload.image_counts else None,
+                )
+                logger.info(f"Phase 6 config: style={payload.style} theme={payload.theme} sections={payload.sections}")
+
+            result = await pipeline.run(prompt, request=gen_request)
 
             if not result.success or not result.html:
                 logger.warning("Pipeline V1 returned empty HTML or failed; falling back to legacy streaming")

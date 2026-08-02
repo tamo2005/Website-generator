@@ -35,6 +35,7 @@ import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, AsyncGenerator, Optional
 
+from ai.builders.design_resolver import DesignResolver
 from ai.builders.html_builder import HTMLBuilder
 from ai.builders.theme_engine import ResolvedTheme, ThemeEngine
 from ai.planner.analyzer import PromptAnalyzer
@@ -46,8 +47,13 @@ from ai.validators.chain import ValidatorChain, ValidationReport
 from evaluation.evaluator import WebsiteEvaluator
 from evaluation.rubric import EvaluationResult
 from schemas.generation import (
+    DesignSpec,
     GenerationPlan,
+    GenerationRequest,
     PromptAnalysisResult,
+    StylePreset,
+    AnimationPreset,
+    ContentTone,
     WebsiteSpec,
 )
 
@@ -70,7 +76,8 @@ class PipelineResult:
     plan: GenerationPlan
     theme: ResolvedTheme
     validation: ValidationReport
-    evaluation: Optional[EvaluationResult] = None  # Sprint 1: Quality scores
+    design_spec: Optional[DesignSpec] = None       # Phase 6: Design tokens
+    evaluation: Optional[EvaluationResult] = None   # Sprint 1: Quality scores
     elapsed_seconds: float = 0.0
     component_count: int = 0
     pipeline_version: str = "V1"
@@ -103,23 +110,28 @@ class GenerationPipelineV1:
         self._planner = AIPlanner()
         self._spec_builder = SpecBuilder()
         self._theme_engine = ThemeEngine()
+        self._design_resolver = DesignResolver()   # Phase 6: Module 4.5
         self._html_builder = HTMLBuilder()
         self._validator_chain = ValidatorChain.default()
         self._repair_engine = RepairEngine()
         self._evaluator = WebsiteEvaluator()
 
-    async def run(self, prompt: str) -> PipelineResult:
+    async def run(
+        self,
+        prompt: str,
+        request: Optional[GenerationRequest] = None,
+    ) -> PipelineResult:
         """
         Execute the full generation pipeline.
 
-        Prompt → Analysis → Plan → Spec → Theme → Components → HTML → Validate → Repair
+        Prompt → Analysis → Plan → Spec → Theme → DesignSpec → Components → HTML → Validate → Repair
         """
         start = time.perf_counter()
 
         try:
             # ── Module 1: Prompt Analysis ─────────────────────────────────
             logger.info("Pipeline: Module 1 — Analyzing prompt")
-            analysis = self._analyzer.analyze(prompt)
+            analysis = self._analyzer.analyze(prompt, request=request)
             logger.info(
                 f"  → type={analysis.website_type.value} "
                 f"industry={analysis.industry} "
@@ -129,7 +141,7 @@ class GenerationPipelineV1:
 
             # ── Module 2: Planning ────────────────────────────────────────
             logger.info("Pipeline: Module 2 — Planning components")
-            plan = self._planner.plan(analysis)
+            plan = self._planner.plan(analysis, request=request)
             logger.info(
                 f"  → {plan.total_components} components, "
                 f"~{plan.estimated_tokens} tokens"
@@ -149,6 +161,23 @@ class GenerationPipelineV1:
                 f"font={theme.heading_font}"
             )
 
+            # ── Module 4.5: DesignSpec Resolution (Phase 6) ──────────────
+            style_preset = (request and request.style) or StylePreset.MODERN
+            anim_preset = (request and request.animations) or AnimationPreset.SMOOTH
+            content_tone = (request and request.content_tone) or ContentTone.PROFESSIONAL
+            logger.info(f"Pipeline: Module 4.5 — Resolving DesignSpec (style={style_preset.value})")
+            design_spec = self._design_resolver.resolve(
+                spec, theme,
+                style=style_preset,
+                animation=anim_preset,
+                content_tone=content_tone,
+            )
+            logger.info(
+                f"  → button={design_spec.button_style[:30]} "
+                f"glass={design_spec.glass_effect} "
+                f"variants={len(design_spec.section_variants)}"
+            )
+
             # ── Module 5+6: Component Generation ─────────────────────────
             logger.info("Pipeline: Module 5+6 — Generating components")
             component_html: dict[int, str] = {}
@@ -160,9 +189,9 @@ class GenerationPipelineV1:
                 component_html[comp_spec.order] = html_fragment
                 logger.debug(f"  → {comp_spec.type.value}: {len(html_fragment)} chars")
 
-            # ── Module 7: HTML Assembly ───────────────────────────────────
+            # ── Module 7: HTML Assembly (+ Phase 6 Interaction Injection) ─
             logger.info("Pipeline: Module 7 — Assembling HTML")
-            full_html = self._html_builder.build(spec, theme, component_html)
+            full_html = self._html_builder.build(spec, theme, component_html, design=design_spec)
             body_html = self._html_builder.build_body_only(spec, theme, component_html)
             logger.info(f"  → Full HTML: {len(full_html)} chars")
 
@@ -175,9 +204,7 @@ class GenerationPipelineV1:
             # If body was repaired, rebuild full HTML
             if repaired_body != body_html:
                 logger.info("  → Body HTML was repaired; rebuilding full page")
-                # Re-parse repaired body into component map isn't needed;
-                # just rebuild with the repaired body directly
-                full_html = self._html_builder._wrap_page(spec, theme, repaired_body)
+                full_html = self._html_builder._wrap_page(spec, theme, repaired_body, design=design_spec)
                 body_html = repaired_body
 
             elapsed = time.perf_counter() - start
@@ -191,6 +218,7 @@ class GenerationPipelineV1:
                 plan=plan,
                 theme=theme,
                 validation=validation,
+                design_spec=design_spec,
                 elapsed_seconds=elapsed,
                 component_count=plan.total_components,
             )

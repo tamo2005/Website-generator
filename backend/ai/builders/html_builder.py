@@ -15,12 +15,14 @@ Output: Complete HTML document string
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from schemas.generation import ComponentSpec, WebsiteSpec
+from ai.interactions.injector import InteractionInjector
 
 if TYPE_CHECKING:
     from ai.builders.theme_engine import ResolvedTheme
+    from schemas.generation import DesignSpec
 
 logger = logging.getLogger("ai-site-gen")
 
@@ -39,6 +41,7 @@ class HTMLBuilder:
         spec: WebsiteSpec,
         theme: "ResolvedTheme",
         component_html: dict[int, str],
+        design: "Optional[DesignSpec]" = None,
     ) -> str:
         """
         Build a complete HTML page from component fragments.
@@ -47,6 +50,7 @@ class HTMLBuilder:
             spec: WebsiteSpec with page structure
             theme: ResolvedTheme with CSS variables and font imports
             component_html: Map of component order → rendered HTML string
+            design: Optional DesignSpec for interaction injection and glass effects
 
         Returns:
             Complete HTML document string
@@ -71,7 +75,13 @@ class HTMLBuilder:
 
         body_content = "\n\n".join(body_parts)
 
-        return self._wrap_page(spec, theme, body_content)
+        # Phase 6: Inject interaction scripts
+        injector = InteractionInjector()
+        scripts = injector.inject(spec, design)
+        if scripts:
+            body_content += scripts
+
+        return self._wrap_page(spec, theme, body_content, design)
 
     def build_body_only(
         self,
@@ -101,6 +111,7 @@ class HTMLBuilder:
         spec: WebsiteSpec,
         theme: "ResolvedTheme",
         body_content: str,
+        design: "Optional[DesignSpec]" = None,
     ) -> str:
         """Wrap body content in a complete HTML document."""
         font_imports = theme.font_imports
@@ -125,14 +136,15 @@ class HTMLBuilder:
       box-sizing: border-box;
     }}"""
 
-        # Glass morphism utility class
+        # Glass morphism utility class — enabled by theme or DesignSpec
+        show_glass = theme.glass_effect or (design and design.glass_effect)
         glass_style = """
     .glass {{
       background: rgba(255, 255, 255, 0.05);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
       border: 1px solid var(--color-border);
-    }}"""
+    }}""" if show_glass else ""
 
         return f"""<!DOCTYPE html>
 <html lang="en">
@@ -146,7 +158,7 @@ class HTMLBuilder:
   <style>
     {css_vars}
     {base_styles}
-    {glass_style if theme.glass_effect else ""}
+    {glass_style}
   </style>
 </head>
 <body>

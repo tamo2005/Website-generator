@@ -17,6 +17,8 @@ Usage:
 """
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Optional
+
 from schemas.generation import (
     ComponentPlan,
     ComponentType,
@@ -24,6 +26,9 @@ from schemas.generation import (
     PromptAnalysisResult,
     WebsiteType,
 )
+
+if TYPE_CHECKING:
+    from schemas.generation import GenerationRequest
 
 
 # ── Default Component Blueprints ─────────────────────────────────────────────
@@ -159,8 +164,12 @@ WEBSITE_BLUEPRINTS: dict[WebsiteType, list[ComponentType]] = {
 
 # Component name → ComponentType mapping (for user-requested components)
 COMPONENT_NAME_MAP: dict[str, ComponentType] = {
+    "Navbar":        ComponentType.NAVBAR,
+    "Hero":          ComponentType.HERO,
+    "Features":      ComponentType.FEATURES,
     "Pricing":       ComponentType.PRICING,
     "FAQ":           ComponentType.FAQ,
+    "Footer":        ComponentType.FOOTER,
     "Contact":       ComponentType.CONTACT,
     "Gallery":       ComponentType.GALLERY,
     "Testimonials":  ComponentType.TESTIMONIALS,
@@ -177,6 +186,7 @@ COMPONENT_NAME_MAP: dict[str, ComponentType] = {
     "Skills":        ComponentType.SKILLS,
     "HowItWorks":    ComponentType.HOW_IT_WORKS,
     "Logos":         ComponentType.LOGOS,
+    "BlogPosts":     ComponentType.BLOG_POSTS,
 }
 
 # Approximate token cost per component (for estimation)
@@ -216,23 +226,36 @@ class AIPlanner:
     The plan defines what components to build and in what order.
     """
 
-    def plan(self, analysis: PromptAnalysisResult) -> GenerationPlan:
+    def plan(
+        self,
+        analysis: PromptAnalysisResult,
+        request: "Optional[GenerationRequest]" = None,
+    ) -> GenerationPlan:
         """
         Build a generation plan from the analysis result.
 
         Strategy:
         1. Start with the blueprint for the detected website type
-        2. Merge any user-requested components that aren't already in the blueprint
-        3. Ensure mandatory components (Navbar, Footer) are always present
-        4. Order components logically
-        5. Estimate total token cost
+        2. If GenerationRequest has explicit sections, use those instead
+        3. Merge any user-requested components not already in the blueprint
+        4. Ensure mandatory components (Navbar, Footer) are always present
+        5. Order components logically
+        6. Estimate total token cost
         """
-        # Step 1: Get base blueprint
-        blueprint = list(
-            WEBSITE_BLUEPRINTS.get(analysis.website_type, WEBSITE_BLUEPRINTS[WebsiteType.LANDING])
-        )
+        # Phase 6: Use explicit section selections from GenerationRequest
+        if request and request.sections:
+            blueprint: list[ComponentType] = []
+            for section_name in request.sections:
+                comp_type = COMPONENT_NAME_MAP.get(section_name)
+                if comp_type:
+                    blueprint.append(comp_type)
+        else:
+            # Step 1: Get base blueprint
+            blueprint = list(
+                WEBSITE_BLUEPRINTS.get(analysis.website_type, WEBSITE_BLUEPRINTS[WebsiteType.LANDING])
+            )
 
-        # Step 2: Merge user-requested components
+        # Step 2: Merge user-requested components from prompt analysis
         for comp_name in analysis.requested_components:
             comp_type = COMPONENT_NAME_MAP.get(comp_name)
             if comp_type and comp_type not in blueprint:

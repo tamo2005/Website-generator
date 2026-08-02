@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Optional
 
 from schemas.generation import (
     PromptAnalysisResult,
@@ -28,6 +29,9 @@ from schemas.generation import (
     ToneStyle,
     WebsiteType,
 )
+
+if TYPE_CHECKING:
+    from schemas.generation import GenerationRequest
 
 
 # ── Keyword Maps ─────────────────────────────────────────────────────────────
@@ -160,8 +164,17 @@ class PromptAnalyzer:
         result = analyzer.analyze("Build a SaaS landing page for an AI startup with pricing")
     """
 
-    def analyze(self, prompt: str) -> PromptAnalysisResult:
-        """Analyze a raw user prompt and extract structured metadata."""
+    def analyze(
+        self,
+        prompt: str,
+        request: "Optional[GenerationRequest]" = None,
+    ) -> PromptAnalysisResult:
+        """
+        Analyze a raw user prompt and extract structured metadata.
+
+        If a GenerationRequest is provided, explicit user selections
+        override the deterministic detection.
+        """
         lowered = prompt.lower().strip()
         words = set(lowered.split())
 
@@ -174,6 +187,22 @@ class PromptAnalyzer:
         color_hint = self._detect_color(lowered)
 
         complexity = self._assess_complexity(prompt, components)
+
+        # Phase 6: Apply GenerationRequest overrides
+        if request:
+            if request.website_type is not None:
+                website_type = request.website_type
+            if request.theme is not None:
+                theme = request.theme
+            if request.color is not None:
+                color_hint = request.color
+            if request.brand_name is not None:
+                brand_name = request.brand_name
+            if request.sections:
+                # Merge user-selected sections with detected ones
+                for section in request.sections:
+                    if section not in components:
+                        components.append(section)
 
         return PromptAnalysisResult(
             website_type=website_type,

@@ -74,6 +74,39 @@ class ToneStyle(str, Enum):
     CREATIVE     = "creative"
 
 
+# ── Phase 6: Style, Animation, Content Presets ───────────────────────────────
+
+class StylePreset(str, Enum):
+    """Visual design language presets. Each maps to concrete design tokens."""
+    MODERN         = "modern"
+    MINIMAL        = "minimal"
+    GLASSMORPHISM  = "glassmorphism"
+    CORPORATE      = "corporate"
+    LUXURY         = "luxury"
+    CYBERPUNK      = "cyberpunk"
+    BRUTALIST      = "brutalist"
+    APPLE          = "apple"        # Clean, spacious, SF-Pro inspired
+    STRIPE         = "stripe"       # Gradient-heavy, bold typography
+    LINEAR         = "linear"       # Dark, refined, geometric
+    NOTION         = "notion"       # Light, serif-accented, warm
+    VERCEL         = "vercel"       # Monochrome, sharp, developer-focused
+
+
+class AnimationPreset(str, Enum):
+    NONE    = "none"
+    MINIMAL = "minimal"     # Subtle fades only
+    SMOOTH  = "smooth"      # Fade + slide + scale
+    FANCY   = "fancy"       # Parallax, stagger, morphs
+
+
+class ContentTone(str, Enum):
+    PROFESSIONAL = "professional"
+    MARKETING    = "marketing"
+    CASUAL       = "casual"
+    MINIMAL_COPY = "minimal"
+    LUXURY       = "luxury"
+
+
 # ── Module 1: Prompt Analysis Result ─────────────────────────────────────────
 
 class PromptAnalysisResult(BaseModel):
@@ -193,3 +226,84 @@ class WebsiteSpec(BaseModel):
     def component_types(self) -> list[str]:
         """Return ordered list of component type names."""
         return [c.type.value for c in self.all_components]
+
+
+# ── Phase 6: DesignSpec ──────────────────────────────────────────────────────
+
+class DesignSpec(BaseModel):
+    """
+    Phase 6: Separates WHAT the website is (WebsiteSpec) from HOW it looks.
+
+    WebsiteSpec → content, structure, components
+    DesignSpec  → visual language, spacing, animation, variants
+
+    This single decision makes it trivially easy to:
+      - Swap design systems without changing content
+      - Add future themes
+      - A/B test visual styles
+    """
+    style_preset: StylePreset = StylePreset.MODERN
+    animation_preset: AnimationPreset = AnimationPreset.SMOOTH
+    content_tone: ContentTone = ContentTone.PROFESSIONAL
+
+    # Layout tokens
+    button_style: str = "rounded-xl px-6 py-3"  # Tailwind classes
+    card_style: str = "rounded-2xl border"       # Card appearance
+    spacing_scale: str = "8px"                    # Base spacing unit
+    container_max_width: str = "max-w-7xl"       # Content width
+
+    # Visual tokens
+    border_radius: str = "0.75rem"
+    elevation: str = "shadow-lg"                  # Default shadow
+    glass_effect: bool = False                    # Backdrop blur
+    gradient_enabled: bool = True
+
+    # Component variant selections
+    section_variants: dict[str, str] = Field(
+        default_factory=dict,
+        description="Component type → variant name, e.g. {'Hero': 'split', 'Pricing': 'toggle'}",
+    )
+
+    # Asset preferences
+    icon_pack: str = "lucide"                     # lucide, heroicons, custom-svg
+    image_style: str = "editorial"                # editorial, abstract, photo, illustration
+
+
+class ImageCounts(BaseModel):
+    """How many images to use in each section."""
+    hero_images: int = Field(default=1, ge=0, le=5)
+    gallery_images: int = Field(default=6, ge=0, le=20)
+    team_members: int = Field(default=4, ge=0, le=12)
+    logos: int = Field(default=6, ge=0, le=16)
+    testimonial_avatars: int = Field(default=3, ge=0, le=10)
+
+
+class GenerationRequest(BaseModel):
+    """
+    Phase 6: Enriched generation payload from the frontend configuration wizard.
+
+    Instead of just {"prompt": "..."}, the frontend sends:
+    {
+      "prompt": "Create AI Startup",
+      "website_type": "saas",
+      "theme": "dark",
+      "style": "linear",
+      "animations": "smooth",
+      "color": "purple",
+      "sections": ["Hero", "Features", "Pricing", "FAQ", "Footer"],
+      "image_counts": {"hero_images": 2, "gallery_images": 6},
+      "content_tone": "professional"
+    }
+    """
+    prompt: str = Field(min_length=3, max_length=8000)
+
+    # Optional overrides — if not provided, the analyzer detects them
+    website_type: Optional[WebsiteType] = None
+    theme: Optional[ThemeMode] = None
+    style: Optional[StylePreset] = None
+    color: Optional[str] = None                   # Color hint: "blue", "purple", etc.
+    animations: Optional[AnimationPreset] = None
+    content_tone: Optional[ContentTone] = None
+    sections: Optional[list[str]] = None          # Explicit section selection
+    image_counts: Optional[ImageCounts] = None
+    brand_name: Optional[str] = None
