@@ -34,6 +34,7 @@ from models.user import User
 from repositories.token_repo import token_repo
 from repositories.user_repo import user_repo
 from services import audit_service, email_service
+from workers import email_tasks
 
 settings = get_settings()
 
@@ -103,7 +104,8 @@ async def register(
         request=request,
     )
 
-    await email_service.send_verification_email(email, username, raw_token)
+    # Dispatch email to Celery (falls back to inline if Redis unavailable)
+    email_tasks.dispatch_verification_email(email, username, raw_token)
 
     return user
 
@@ -358,7 +360,7 @@ async def verify_email(
             resource_id=str(user.id),
             request=request,
         )
-        await email_service.send_welcome_email(user.email, user.username)
+        email_tasks.dispatch_welcome_email(user.email, user.username)
 
 
 # ── Forgot Password ────────────────────────────────────────
@@ -392,7 +394,7 @@ async def forgot_password(
         request=request,
     )
 
-    await email_service.send_password_reset_email(user.email, user.username, raw_token)
+    email_tasks.dispatch_password_reset_email(user.email, user.username, raw_token)
 
 
 # ── Reset Password ─────────────────────────────────────────
