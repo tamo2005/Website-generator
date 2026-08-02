@@ -113,26 +113,49 @@ async def generate(
     user: User = Depends(get_current_verified_user),
     db: AsyncSession = Depends(get_db),
 ) -> StreamingResponse:
-    """Stream HTML tokens as Server-Sent Events. Requires auth + verified email."""
+    """Stream HTML tokens as Server-Sent Events using GenerationPipelineV1 (Modules 1-9 + Evaluation Engine)."""
     prompt = payload.prompt.strip()
     start = time.perf_counter()
     logger.info(f"Generate request — user={user.id} prompt_len={len(prompt)}")
 
     async def event_stream():
         try:
-            token_count = 0
-            async for token in stream_html_tokens(prompt):
-                if await request.is_disconnected():
-                    logger.info("Client disconnected — aborting stream")
-                    return
-                token_count += 1
-                yield format_sse(token)
+            from ai.pipeline.runner import GenerationPipelineV1
+            from ai.providers.openrouter import OpenRouterProvider
+            from ai.providers.base import GenerationConfig
+
+            provider = OpenRouterProvider()
+            config = GenerationConfig(model=settings.OPENROUTER_MODEL)
+            pipeline = GenerationPipelineV1(provider=provider, config=config)
+
+            logger.info(f"Executing GenerationPipelineV1 for prompt: {prompt[:50]}...")
+            result = await pipeline.run(prompt)
+
+            if not result.success or not result.html:
+                logger.warning("Pipeline V1 returned empty HTML or failed; falling back to legacy streaming")
+                token_count = 0
+                async for token in stream_html_tokens(prompt):
+                    if await request.is_disconnected():
+                        return
+                    token_count += 1
+                    yield format_sse(token)
+            else:
+                logger.info(
+                    f"Pipeline V1 succeeded in {result.elapsed_seconds:.2f}s — "
+                    f"Score: {result.evaluation.overall_score if result.evaluation else 'N/A'} "
+                    f"({result.evaluation.grade if result.evaluation else 'N/A'}) — "
+                    f"{result.component_count} components"
+                )
+                html = result.html
+                chunk_size = 64
+                for i in range(0, len(html), chunk_size):
+                    if await request.is_disconnected():
+                        return
+                    chunk = html[i : i + chunk_size]
+                    yield format_sse(chunk)
 
             elapsed = time.perf_counter() - start
-            logger.info(
-                f"Stream complete — {token_count} tokens in {elapsed:.2f}s "
-                f"({token_count / elapsed:.1f} tok/s)"
-            )
+            logger.info(f"Stream complete in {elapsed:.2f}s")
             yield format_sse_done()
         except Exception as exc:
             logger.error(f"Generation error: {exc}", exc_info=True)
